@@ -79,29 +79,37 @@
 
     async init() {
       try {
+        console.log('[Feed Cleaner] Başlatılıyor...');
+        
         // Classifier'ı bekle ve yükle
         if (!SimpleClassifier) {
+          console.log('[Feed Cleaner] Classifier bekleniyor...');
           await new Promise(resolve => setTimeout(resolve, 100));
         }
         
         // ONNX Classifier'ı oluştur ve başlat
+        console.log('[Feed Cleaner] Classifier oluşturuluyor...');
         this.classifier = new SimpleClassifier();
         await this.classifier.init(); // ONNX modelini yükle
+        console.log('[Feed Cleaner] Classifier hazır');
         
         // Ayarları yükle
         const result = await chrome.storage.local.get(['filterEnabled', 'filterLevel', 'stats']);
         this.filterEnabled = result.filterEnabled !== false;
         this.filterLevel = result.filterLevel || 'medium';
         this.stats = result.stats || { filtered: 0, total: 0 };
+        console.log('[Feed Cleaner] Ayarlar yüklendi:', { filterEnabled: this.filterEnabled, filterLevel: this.filterLevel });
 
         // Feed'i izle
         this.observeFeed();
+        console.log('[Feed Cleaner] Feed izleme başlatıldı');
         
         // Mevcut postları işle (debounced)
         this.debouncedProcessPosts();
 
         // Mesaj dinleyicisi
         this.setupMessageListener();
+        console.log('[Feed Cleaner] ✅ Başlatma tamamlandı');
       } catch (error) {
         this.logError('Initialization error', error);
       }
@@ -197,18 +205,93 @@
     }
 
     processExistingPosts() {
-      if (!this.filterEnabled || !this.classifier) return;
+      if (!this.filterEnabled) {
+        console.log('[Feed Cleaner] Filtreleme kapalı');
+        return;
+      }
+      
+      if (!this.classifier) {
+        console.log('[Feed Cleaner] Classifier henüz hazır değil');
+        return;
+      }
 
       try {
         // LinkedIn post elementlerini bul (güncel selector'lar)
-        const postElements = document.querySelectorAll(
-          '[data-testid="feed-shared-update-v2"], ' +
-          '.feed-shared-update-v2, ' +
-          'article[data-urn], ' +
-          '.update-components-actor, ' +
-          '.feed-shared-update, ' +
-          'div[data-urn*="urn:li:activity"]'
-        );
+        // HTML yapısına göre: .fie-impression-container ana container
+        // Strateji: Önce içerik container'larını bul, sonra parent'larını al
+        
+        let postElements = [];
+        let workingSelectors = [];
+        
+        // 1. Ana post container'larını direkt bul
+        const containerSelectors = [
+          '.fie-impression-container',  // Ana post container (yeni yapı)
+          '[data-testid="feed-shared-update-v2"]',
+          '.feed-shared-update-v2',
+          'article[data-urn]',
+          'div[data-urn*="urn:li:activity"]',
+          'div[data-urn*="urn:li:share"]',
+          'article[data-id]'
+        ];
+        
+        for (const selector of containerSelectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            workingSelectors.push(selector);
+            postElements.push(...Array.from(elements));
+          }
+        }
+        
+        // 2. İçerik container'larını bul ve parent'larını al
+        const contentSelectors = [
+          '.feed-shared-inline-show-more-text',
+          '.feed-shared-update-v2__description',
+          '.update-components-update-v2__commentary',
+          '.update-components-text'
+        ];
+        
+        for (const selector of contentSelectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            workingSelectors.push(selector + ' (parent)');
+            elements.forEach(el => {
+              // En yakın post container'ını bul
+              let parent = el.closest('.fie-impression-container') || 
+                          el.closest('[data-testid="feed-shared-update-v2"]') ||
+                          el.closest('.feed-shared-update-v2') ||
+                          el.closest('article[data-urn]') ||
+                          el.closest('div[data-urn*="urn:li"]') ||
+                          el.closest('article') ||
+                          el.parentElement?.parentElement?.parentElement?.parentElement; // 4 seviye yukarı
+              if (parent) {
+                postElements.push(parent);
+              }
+            });
+          }
+        }
+        
+        // Duplicate'leri kaldır (aynı element birden fazla selector ile bulunmuş olabilir)
+        postElements = Array.from(new Set(postElements));
+        
+        if (postElements.length > 0) {
+          console.log(`[Feed Cleaner] Toplam ${postElements.length} post container bulundu`);
+          if (workingSelectors.length > 0) {
+            console.log(`[Feed Cleaner] Çalışan selector'lar:`, workingSelectors.slice(0, 3).join(', '), workingSelectors.length > 3 ? '...' : '');
+          }
+        }
+        
+        if (postElements.length === 0) {
+          console.warn('[Feed Cleaner] ⚠️ Hiç post bulunamadı! LinkedIn DOM yapısı değişmiş olabilir.');
+          // Debug: Tüm article ve div elementlerini say
+          const allArticles = document.querySelectorAll('article');
+          const allDivsWithDataUrn = document.querySelectorAll('div[data-urn]');
+          const allImpressionContainers = document.querySelectorAll('.fie-impression-container');
+          console.log(`[Feed Cleaner] Debug - Toplam article: ${allArticles.length}, data-urn div: ${allDivsWithDataUrn.length}, impression-container: ${allImpressionContainers.length}`);
+          if (allImpressionContainers.length > 0) {
+            console.log('[Feed Cleaner] ✅ .fie-impression-container bulundu! Selector güncellenmeli.');
+          }
+          return;
+        }
         
         const newPosts = Array.from(postElements).filter(element => {
           // WeakSet ile kontrol (memory efficient)
@@ -217,7 +300,14 @@
           return true;
         });
 
-        if (newPosts.length === 0) return;
+        if (newPosts.length > 0) {
+          console.log(`[Feed Cleaner] ✅ ${newPosts.length} yeni post bulundu ve işleniyor...`);
+        }
+
+        if (newPosts.length === 0) {
+          // Sessizce devam et (çok fazla log olmasın)
+          return;
+        }
 
         // Best Practice: Batch processing
         this.addToQueue(newPosts);
@@ -254,7 +344,10 @@
       try {
         // Post içeriğini çıkar
         const content = this.extractPostContent(element);
-        if (!content || content.length < 10) return;
+        if (!content || content.length < 10) {
+          console.warn('[Feed Cleaner] Post içeriği çok kısa veya bulunamadı');
+          return;
+        }
 
         this.stats.total++;
         
@@ -269,11 +362,10 @@
           // Best Practice: Batch storage updates
           this.updateStats();
           
-          // Debug logging (production'da kapatılabilir)
-          if (chrome.runtime.getManifest().version.includes('dev')) {
-            console.log(`[Feed Cleaner] Filtrelendi: ${result.category} (${(result.confidence * 100).toFixed(1)}%)`);
-          }
+          // Debug logging (sadece filtrelenenler için)
+          console.log(`[Feed Cleaner] 🚫 Filtrelendi: ${result.category} (${(result.confidence * 100).toFixed(1)}%) - "${content.substring(0, 60)}..."`);
         }
+        // Gösterilen postlar için log yok (çok fazla log olmasın)
       } catch (error) {
         this.logError('Process post error', error, { element });
         // Graceful degradation: Hata durumunda post'u göster
@@ -297,28 +389,60 @@
 
     extractPostContent(element) {
       // Best Practice: Specific selectors (güncel LinkedIn selector'ları)
+      // HTML yapısına göre: .update-components-text > .break-words > span[dir="ltr"]
       const contentSelectors = [
+        // En spesifik: Gerçek metin içeriği
+        '.update-components-text .break-words span[dir="ltr"]',
+        '.update-components-update-v2__commentary .break-words span[dir="ltr"]',
+        '.break-words span[dir="ltr"]',
+        // Metin container'ları
+        '.update-components-text',
+        '.update-components-update-v2__commentary',
+        '.feed-shared-inline-show-more-text .update-components-text',
+        // Eski selector'lar (fallback)
         '.feed-shared-text__text-view',
         '.feed-shared-update-v2__description',
         '[data-testid="feed-shared-text"]',
-        '.update-components-text',
         '.feed-shared-text-view',
         '.feed-shared-text',
         '.update-components-text__text-view',
         '.feed-shared-inline-show-more-text',
-        '.break-words span[dir="ltr"]'
+        '.feed-shared-text-view span',
+        '.update-components-text__text-view span',
+        'span[dir="ltr"]',
+        '.feed-shared-text__text-view span'
       ];
 
       for (const selector of contentSelectors) {
         const contentEl = element.querySelector(selector);
         if (contentEl) {
-          // Best Practice: textContent kullan (XSS koruması)
-          return contentEl.textContent.trim();
+          const text = contentEl.textContent.trim();
+          // Metni temizle (gereksiz boşlukları kaldır)
+          const cleanedText = text.replace(/\s+/g, ' ').trim();
+          if (cleanedText.length >= 10) {
+            // Best Practice: textContent kullan (XSS koruması)
+            return cleanedText;
+          }
         }
       }
 
       // Fallback: tüm metni al (dikkatli kullan)
-      return element.textContent.trim();
+      // Ama önce header, footer gibi gereksiz kısımları çıkar
+      const tempEl = element.cloneNode(true);
+      // Header ve footer elementlerini kaldır
+      const toRemove = tempEl.querySelectorAll('.update-components-header, .feed-shared-social-action-bar, .update-v2-social-activity, .social-details-social-counts');
+      toRemove.forEach(el => el.remove());
+      
+      const fallbackText = tempEl.textContent.trim().replace(/\s+/g, ' ').trim();
+      if (fallbackText.length >= 10) {
+        return fallbackText;
+      }
+      
+      // Sadece uyarı ver (çok fazla log olmasın)
+      if (this.stats.total % 10 === 0) { // Her 10 post'ta bir uyarı
+        console.warn('[Feed Cleaner] Bazı postların içeriği çıkarılamadı');
+      }
+      return null;
     }
 
     hidePost(element) {
