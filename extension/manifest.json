@@ -14,7 +14,11 @@
   "content_scripts": [
     {
       "matches": ["https://www.linkedin.com/*"],
-      "js": ["content/content-script.js"],
+      "js": [
+        "utils/onnxruntime-web.min.js",
+        "utils/classifier.js",
+        "content/content-script.js"
+      ],
       "css": ["content/content-style.css"],
       "run_at": "document_idle"
     }

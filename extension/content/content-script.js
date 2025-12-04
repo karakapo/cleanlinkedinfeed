@@ -12,43 +12,65 @@
   let SimpleClassifier;
   
   function loadClassifierScript() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('utils/classifier.js');
-    script.onload = function() {
-      if (window.SimpleClassifier) {
-        SimpleClassifier = window.SimpleClassifier;
-        // Feed cleaner'ı yeniden başlat
-        if (window[FEED_CLEANER_NS]) {
-          window[FEED_CLEANER_NS].classifier = new SimpleClassifier();
-        }
+    // Script artık manifest'te content script olarak yükleniyor
+    // Bu yüzden window.SimpleClassifier direkt erişilebilir olmalı
+    console.log('[Feed Cleaner] Classifier script manifest\'ten yüklendi, kontrol ediliyor...');
+    
+    // Script yüklendikten sonra kontrol et
+    if (window.SimpleClassifier && typeof window.SimpleClassifier === 'function') {
+      SimpleClassifier = window.SimpleClassifier;
+      console.log('[Feed Cleaner] ✅ ONNX Classifier yüklendi ve hazır');
+      // Feed cleaner'ı yeniden başlat (eğer zaten başlatılmışsa)
+      if (window[FEED_CLEANER_NS] && window[FEED_CLEANER_NS].classifier) {
+        // Mevcut classifier'ı yeniden oluştur
+        window[FEED_CLEANER_NS].classifier = new SimpleClassifier();
+        window[FEED_CLEANER_NS].classifier.init().then(() => {
+          console.log('[Feed Cleaner] ✅ ONNX Classifier ile güncellendi');
+          // Mevcut postları yeniden işle
+          window[FEED_CLEANER_NS].debouncedProcessPosts();
+        }).catch(err => {
+          console.error('[Feed Cleaner] ONNX Classifier init hatası:', err);
+        });
       }
-    };
-    script.onerror = function() {
-      console.warn('[Feed Cleaner] Classifier script load failed, using fallback');
-    };
-    (document.head || document.documentElement).appendChild(script);
+    } else {
+      console.warn('[Feed Cleaner] ⚠️ window.SimpleClassifier bulunamadı');
+      console.warn('[Feed Cleaner] window.SimpleClassifier tipi:', typeof window.SimpleClassifier);
+      console.warn('[Feed Cleaner] Fallback classifier kullanılıyor');
+    }
   }
   
-  function createFallbackClassifier() {
-    // Fallback classifier (basit keyword-based)
-    return {
-      classify: function(text) {
-        const lowerText = text.toLowerCase();
-        if (lowerText.includes('urgent') || lowerText.includes('click here')) {
-          return { category: 'spam', confidence: 0.8 };
-        }
-        return { category: 'genuine', confidence: 0.5 };
-      },
-      shouldFilter: function(result, level) {
-        return result.category === 'spam' && result.confidence > 0.6;
+  // Fallback classifier class (basit keyword-based)
+  class FallbackClassifier {
+    async init() {
+      // Fallback için init gerekmez
+      console.log('[Feed Cleaner] Fallback classifier kullanılıyor (ONNX model yüklenene kadar)');
+      return Promise.resolve();
+    }
+    
+    async classify(text) {
+      const lowerText = text.toLowerCase();
+      if (lowerText.includes('urgent') || lowerText.includes('click here') || 
+          lowerText.includes('free money') || lowerText.includes('click now')) {
+        return { category: 'spam', confidence: 0.8 };
       }
-    };
+      return { category: 'genuine', confidence: 0.5 };
+    }
+    
+    shouldFilter(result, level) {
+      const thresholds = {
+        'light': 0.8,
+        'medium': 0.6,
+        'aggressive': 0.4
+      };
+      const threshold = thresholds[level] || 0.6;
+      return result.category === 'spam' && result.confidence >= threshold;
+    }
   }
 
   // Önce global namespace'den kontrol et (script tag ile yüklenmiş olabilir)
   if (!window.SimpleClassifier) {
-    // Fallback classifier kullan
-    SimpleClassifier = createFallbackClassifier();
+    // Fallback classifier class'ını kullan
+    SimpleClassifier = FallbackClassifier;
     
     // Classifier script'ini dinamik olarak yükle
     loadClassifierScript();
@@ -83,6 +105,9 @@
         
         // ONNX Classifier'ı oluştur ve başlat
         console.log('[Feed Cleaner] Classifier oluşturuluyor...');
+        if (typeof SimpleClassifier !== 'function') {
+          throw new Error('SimpleClassifier is not a constructor. Type: ' + typeof SimpleClassifier);
+        }
         this.classifier = new SimpleClassifier();
         await this.classifier.init(); // ONNX modelini yükle
         console.log('[Feed Cleaner] Classifier hazır');
@@ -339,7 +364,7 @@
         // Post içeriğini çıkar
         const content = this.extractPostContent(element);
         if (!content || content.length < 10) {
-          console.warn('[Feed Cleaner] Post içeriği çok kısa veya bulunamadı');
+          // Sessizce devam et (çok fazla log olmasın)
           return;
         }
 
@@ -358,8 +383,10 @@
           
           // Debug logging (sadece filtrelenenler için)
           console.log(`[Feed Cleaner] 🚫 Filtrelendi: ${result.category} (${(result.confidence * 100).toFixed(1)}%) - "${content.substring(0, 60)}..."`);
+        } else if (this.stats.total <= 5) {
+          // İlk 5 post için debug (hangi classifier kullanıldığını görmek için)
+          console.log(`[Feed Cleaner] ✓ Gösteriliyor: ${result.category} (${(result.confidence * 100).toFixed(1)}%)`);
         }
-        // Gösterilen postlar için log yok (çok fazla log olmasın)
       } catch (error) {
         this.logError('Process post error', error, { element });
         // Graceful degradation: Hata durumunda post'u göster

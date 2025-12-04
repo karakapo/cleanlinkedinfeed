@@ -4,6 +4,10 @@
 
 (function() {
   'use strict';
+  
+  console.log('[ONNX Classifier] Script başlatılıyor...');
+  
+  try {
 
   class ONNXClassifier {
     constructor() {
@@ -31,10 +35,13 @@
         const metadataResponse = await fetch(metadataUrl);
         this.metadata = await metadataResponse.json();
 
-        // ONNX.js'i yükle (extension'dan)
+        // ONNX.js'i kontrol et (manifest'ten yüklenmiş olmalı)
         if (typeof ort === 'undefined') {
+          // Manifest'ten yüklenmediyse, script tag ile yükle
           const onnxScriptUrl = chrome.runtime.getURL('utils/onnxruntime-web.min.js');
           await this._loadScript(onnxScriptUrl);
+        } else {
+          console.log('[ONNX Classifier] ONNX.js manifest\'ten yüklendi');
         }
 
         // ONNX modelini yükle
@@ -229,13 +236,21 @@
     }
   }
 
-  // Global namespace'e export et (script tag ile yükleme için)
-  window.SimpleClassifier = ONNXClassifier;
-  
-  // ES6 module export (eğer bundler kullanılıyorsa)
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SimpleClassifier: ONNXClassifier };
+    // Global namespace'e export et (script tag ile yükleme için)
+    window.SimpleClassifier = ONNXClassifier;
+    console.log('[ONNX Classifier] ✅ SimpleClassifier window\'a eklendi:', typeof window.SimpleClassifier);
+    
+    // ES6 module export (eğer bundler kullanılıyorsa)
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = { SimpleClassifier: ONNXClassifier };
+    }
+    
+    console.log('[ONNX Classifier] ✅ Script başarıyla yüklendi');
+  } catch (error) {
+    console.error('[ONNX Classifier] ❌ Script hatası:', error);
+    console.error('[ONNX Classifier] Hata detayı:', error.message, error.stack);
+    // Hata durumunda bile window.SimpleClassifier'ı tanımlamaya çalış
+    // Böylece fallback kullanılabilir
   }
-  
 })();
 
