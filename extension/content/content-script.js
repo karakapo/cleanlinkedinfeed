@@ -375,7 +375,7 @@
         
         // Filtrele
         if (this.classifier.shouldFilter(result, this.filterLevel)) {
-          this.hidePost(element);
+          this.hidePost(element, result);
           this.stats.filtered++;
           
           // Best Practice: Batch storage updates
@@ -466,19 +466,41 @@
       return null;
     }
 
-    hidePost(element) {
+    hidePost(element, result) {
       try {
-        // Best Practice: CSS class kullan (style direkt değiştirmek yerine)
-        element.classList.add('feed-cleaner-hidden');
-        element.setAttribute('data-feed-cleaner-hidden', 'true');
+        // Test modu: Post'u kaldırmak yerine işaretle
+        element.classList.add('feed-cleaner-marked');
+        element.setAttribute('data-feed-cleaner-marked', 'true');
+        element.setAttribute('data-feed-cleaner-category', result.category);
+        element.setAttribute('data-feed-cleaner-confidence', (result.confidence * 100).toFixed(1));
         
-        // Smooth fade out (opsiyonel)
-        element.style.transition = 'opacity 0.3s ease-out';
-        element.style.opacity = '0';
-        
-        setTimeout(() => {
-          element.style.display = 'none';
-        }, 300);
+        // Görsel işaret ekle (border ve badge)
+        if (!element.querySelector('.feed-cleaner-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'feed-cleaner-badge';
+          badge.textContent = `🚫 ${result.category.toUpperCase()} (${(result.confidence * 100).toFixed(1)}%)`;
+          badge.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          `;
+          
+          // Element'in position'ını kontrol et
+          const computedStyle = window.getComputedStyle(element);
+          if (computedStyle.position === 'static') {
+            element.style.position = 'relative';
+          }
+          
+          element.appendChild(badge);
+        }
       } catch (error) {
         this.logError('Hide post error', error);
       }

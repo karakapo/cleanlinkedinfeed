@@ -45,10 +45,14 @@
         }
 
         // ONNX modelini yükle
+        // Backend belirtmeden bırak - ONNX.js otomatik olarak mevcut backend'i seçer
+        // Local'de çalışıyorsa, muhtemelen WASM backend'i seçilecek
         const modelUrl = chrome.runtime.getURL('models/classifier_model.onnx');
-        this.onnxSession = await ort.InferenceSession.create(modelUrl, {
-          executionProviders: ['wasm'], // WebAssembly backend
-        });
+        
+        // Execution providers belirtmeden bırak - ONNX.js otomatik seçim yapar
+        // Eğer hiç backend yoksa, hata fırlatılır ve fallback classifier kullanılır
+        this.onnxSession = await ort.InferenceSession.create(modelUrl);
+        console.log('[ONNX Classifier] Model yüklendi (otomatik backend seçimi)');
 
         // Transformers.js'i yükle (embedding için)
         // Transformers.js ES module olarak yüklenir, bu yüzden dynamic import kullanıyoruz
