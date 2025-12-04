@@ -29,19 +29,6 @@
     (document.head || document.documentElement).appendChild(script);
   }
   
-  // Önce global namespace'den kontrol et (script tag ile yüklenmiş olabilir)
-  if (window.SimpleClassifier) {
-    SimpleClassifier = window.SimpleClassifier;
-    initFeedCleaner();
-  } else {
-    // Fallback classifier kullan
-    SimpleClassifier = createFallbackClassifier();
-    initFeedCleaner();
-    
-    // Classifier script'ini dinamik olarak yükle
-    loadClassifierScript();
-  }
-
   function createFallbackClassifier() {
     // Fallback classifier (basit keyword-based)
     return {
@@ -58,8 +45,15 @@
     };
   }
 
-  function initFeedCleaner() {
-    new FeedCleaner();
+  // Önce global namespace'den kontrol et (script tag ile yüklenmiş olabilir)
+  if (!window.SimpleClassifier) {
+    // Fallback classifier kullan
+    SimpleClassifier = createFallbackClassifier();
+    
+    // Classifier script'ini dinamik olarak yükle
+    loadClassifierScript();
+  } else {
+    SimpleClassifier = window.SimpleClassifier;
   }
 
   class FeedCleaner {
@@ -515,13 +509,39 @@
   // LinkedIn'de çalış
   if (window.location.hostname.includes('linkedin.com')) {
     // Sayfa yüklendiğinde başlat
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        window[FEED_CLEANER_NS] = new FeedCleaner();
-      });
-    } else {
+    const initFeedCleaner = () => {
       window[FEED_CLEANER_NS] = new FeedCleaner();
+      console.log('[Feed Cleaner] ✅ Extension yüklendi ve başlatıldı');
+    };
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFeedCleaner);
+    } else {
+      initFeedCleaner();
     }
+    
+    // Debug: Global erişim için
+    window.feedCleanerDebug = {
+      getStats: () => window[FEED_CLEANER_NS]?.stats || null,
+      getStatus: () => ({
+        enabled: window[FEED_CLEANER_NS]?.filterEnabled,
+        level: window[FEED_CLEANER_NS]?.filterLevel,
+        classifierReady: !!window[FEED_CLEANER_NS]?.classifier,
+        processedPosts: window[FEED_CLEANER_NS]?.processedPosts?.size || 0
+      }),
+      testPostDetection: () => {
+        const posts = document.querySelectorAll('.fie-impression-container, article[data-urn], div[data-urn*="urn:li"]');
+        console.log(`[Feed Cleaner Debug] Bulunan post sayısı: ${posts.length}`);
+        return posts.length;
+      },
+      forceProcess: () => {
+        if (window[FEED_CLEANER_NS]) {
+          window[FEED_CLEANER_NS].processExistingPosts();
+          console.log('[Feed Cleaner Debug] Post işleme zorlandı');
+        }
+      }
+    };
+    console.log('[Feed Cleaner] Debug komutları hazır. Console\'da feedCleanerDebug yazarak kullanabilirsiniz.');
   }
 
   // Demo sayfası için
