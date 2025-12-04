@@ -1,5 +1,33 @@
 /* Content script stilleri */
 /* Best Practice: Specific class kullan */
+
+/* Test modu: Post'ları kaldırmak yerine işaretle */
+.feed-cleaner-marked,
+[data-feed-cleaner-marked="true"] {
+  border: 3px solid #ff0000 !important;
+  border-style: dashed !important;
+  background-color: rgba(255, 0, 0, 0.05) !important;
+  position: relative !important;
+  opacity: 0.85 !important;
+}
+
+/* Filtrelenmiş postlar için badge */
+.feed-cleaner-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 0, 0, 0.9);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 10000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+
+/* Eski stil (kaldırma modu için - şu an kullanılmıyor) */
 .feed-cleaner-hidden,
 [data-feed-cleaner-hidden="true"] {
   display: none !important;
