@@ -31,9 +31,10 @@
         const metadataResponse = await fetch(metadataUrl);
         this.metadata = await metadataResponse.json();
 
-        // ONNX.js'i yükle (CDN'den)
+        // ONNX.js'i yükle (extension'dan)
         if (typeof ort === 'undefined') {
-          await this._loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js');
+          const onnxScriptUrl = chrome.runtime.getURL('utils/onnxruntime-web.min.js');
+          await this._loadScript(onnxScriptUrl);
         }
 
         // ONNX modelini yükle
