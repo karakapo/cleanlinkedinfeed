@@ -1,0 +1,19 @@
+{
+  "model_name": "Logistic Regression",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_dim": 384,
+  "accuracy": 1.0,
+  "classes": [
+    "advertisement",
+    "genuine",
+    "motivational-trash",
+    "self-promo",
+    "spam"
+  ],
+  "onnx_model_path": "classifier_model.onnx",
+  "input_name": "float_input",
+  "input_shape": [
+    null,
+    384
+  ]
+}

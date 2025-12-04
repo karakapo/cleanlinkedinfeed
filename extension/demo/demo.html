@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Feed Cleaner - Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f3f2ef;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: #0a66c2;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .controls {
+      padding: 20px;
+      background: #f9f9f9;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-group label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .control-group select,
+    .control-group button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .btn {
+      background: #0a66c2;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: #004182;
+    }
+
+    .btn-secondary {
+      background: #666;
+    }
+
+    .btn-secondary:hover {
+      background: #555;
+    }
+
+    .stats {
+      padding: 15px 20px;
+      background: #f0f0f0;
+      display: flex;
+      gap: 30px;
+      font-size: 14px;
+    }
+
+    .stat {
+      display: flex;
+      gap: 5px;
+    }
+
+    .stat-label {
+      color: #666;
+    }
+
+    .stat-value {
+      font-weight: bold;
+      color: #0a66c2;
+    }
+
+    .feed {
+      padding: 20px;
+    }
+
+    .post {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+    }
+
+    .post.hidden {
+      display: none;
+    }
+
+    .post.fading {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    .post-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #0a66c2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .post-info {
+      flex: 1;
+    }
+
+    .author {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 2px;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .post-content {
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .post-footer {
+      display: flex;
+      gap: 20px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .post-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .tag-spam { background: #fee; color: #c33; }
+    .tag-self-promo { background: #ffe; color: #c93; }
+    .tag-motivational-trash { background: #eff; color: #3c9; }
+    .tag-advertisement { background: #eef; color: #36c; }
+    .tag-genuine { background: #efe; color: #3c6; }
+
+    .confidence {
+      font-size: 11px;
+      color: #999;
+      margin-left: 5px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .empty-state h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 LinkedIn Feed Cleaner - Demo</h1>
+      <p>Sahte LinkedIn feed'i ile filtreleme sistemini test edin</p>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>Filtreleme Seviyesi:</label>
+        <select id="filterLevel">
+          <option value="light">Hafif</option>
+          <option value="medium" selected>Orta</option>
+          <option value="aggressive">Agresif</option>
+        </select>
+      </div>
+      <button class="btn" id="toggleFilter">Filtrelemeyi Aç</button>
+      <button class="btn btn-secondary" id="resetFeed">Feed'i Yenile</button>
+      <button class="btn btn-secondary" id="showAll">Tümünü Göster</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Toplam Post:</span>
+        <span class="stat-value" id="totalCount">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Filtrelenen:</span>
+        <span class="stat-value" id="filteredCount">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Görünen:</span>
+        <span class="stat-value" id="visibleCount">0</span>
+      </div>
+    </div>
+
+    <div class="feed" id="feed">
+      <!-- Postlar buraya eklenecek -->
+    </div>
+  </div>
+
+  <script type="module">
+    import { fakePosts } from '../utils/fake-data.js';
+    import { SimpleClassifier } from '../utils/classifier.js';
+
+    class DemoFeedCleaner {
+      constructor() {
+        this.classifier = new SimpleClassifier();
+        this.filterEnabled = true;
+        this.filterLevel = 'medium';
+        this.posts = [];
+        this.init();
+      }
+
+      init() {
+        this.loadPosts();
+        this.setupEventListeners();
+      }
+
+      loadPosts() {
+        // Sahte postları yükle
+        this.posts = fakePosts.map(post => ({
+          ...post,
+          element: null,
+          hidden: false,
+          classification: null
+        }));
+
+        this.renderFeed();
+        this.processPosts();
+      }
+
+      setupEventListeners() {
+        document.getElementById('filterLevel').addEventListener('change', (e) => {
+          this.filterLevel = e.target.value;
+          this.processPosts();
+        });
+
+        document.getElementById('toggleFilter').addEventListener('click', () => {
+          this.filterEnabled = !this.filterEnabled;
+          document.getElementById('toggleFilter').textContent = 
+            this.filterEnabled ? 'Filtrelemeyi Kapat' : 'Filtrelemeyi Aç';
+          this.processPosts();
+        });
+
+        document.getElementById('resetFeed').addEventListener('click', () => {
+          this.loadPosts();
+        });
+
+        document.getElementById('showAll').addEventListener('click', () => {
+          this.posts.forEach(post => {
+            post.hidden = false;
+            if (post.element) {
+              post.element.classList.remove('hidden', 'fading');
+            }
+          });
+          this.updateStats();
+        });
+      }
+
+      renderFeed() {
+        const feedEl = document.getElementById('feed');
+        feedEl.innerHTML = '';
+
+        this.posts.forEach((post, index) => {
+          const postEl = document.createElement('div');
+          postEl.className = 'post';
+          postEl.dataset.postId = post.id;
+
+          const categoryClass = `tag-${post.category.replace('-', '-')}`;
+          const categoryLabel = {
+            'spam': 'Spam',
+            'self-promo': 'Self-Promo',
+            'motivational-trash': 'Motivational',
+            'advertisement': 'Ad',
+            'genuine': 'Genuine'
+          }[post.category] || post.category;
+
+          postEl.innerHTML = `
+            <div class="post-header">
+              <div class="avatar">${post.author.charAt(0)}</div>
+              <div class="post-info">
+                <div class="author">${post.author}</div>
+                <div class="timestamp">${post.timestamp}</div>
+              </div>
+              <span class="post-tag ${categoryClass}">${categoryLabel}</span>
+            </div>
+            <div class="post-content">${post.content}</div>
+            <div class="post-footer">
+              <span>👍 Like</span>
+              <span>💬 Comment</span>
+              <span>🔄 Share</span>
+            </div>
+          `;
+
+          feedEl.appendChild(postEl);
+          post.element = postEl;
+        });
+
+        this.updateStats();
+      }
+
+      processPosts() {
+        this.posts.forEach(post => {
+          if (!post.element) return;
+
+          // Sınıflandır
+          const result = this.classifier.classify(post.content);
+          post.classification = result;
+
+          // Filtrele
+          if (this.filterEnabled && this.classifier.shouldFilter(result, this.filterLevel)) {
+            post.hidden = true;
+            post.element.classList.add('fading');
+            setTimeout(() => {
+              post.element.classList.add('hidden');
+            }, 300);
+          } else {
+            post.hidden = false;
+            post.element.classList.remove('hidden', 'fading');
+          }
+        });
+
+        this.updateStats();
+      }
+
+      updateStats() {
+        const total = this.posts.length;
+        const filtered = this.posts.filter(p => p.hidden).length;
+        const visible = total - filtered;
+
+        document.getElementById('totalCount').textContent = total;
+        document.getElementById('filteredCount').textContent = filtered;
+        document.getElementById('visibleCount').textContent = visible;
+      }
+    }
+
+    // Demo'yu başlat
+    new DemoFeedCleaner();
+  </script>
+</body>
+</html>
+

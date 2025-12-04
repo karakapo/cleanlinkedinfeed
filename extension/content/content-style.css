@@ -1,0 +1,14 @@
+/* Content script stilleri */
+/* Best Practice: Specific class kullan */
+.feed-cleaner-hidden,
+[data-feed-cleaner-hidden="true"] {
+  display: none !important;
+}
+
+/* Filtrelenmiş postlar için fade out animasyonu */
+.feed-cleaner-fading {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  pointer-events: none;
+}
+

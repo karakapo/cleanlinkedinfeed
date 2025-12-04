@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Feed Cleaner</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 LinkedIn Feed Cleaner</h1>
+      <p class="subtitle">Feed'inizi temiz tutun</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-label">Filtrelenen</span>
+        <span class="stat-value" id="filteredCount">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Toplam Post</span>
+        <span class="stat-value" id="totalCount">0</span>
+      </div>
+    </div>
+
+    <div class="settings">
+      <label for="filterLevel">Filtreleme Seviyesi:</label>
+      <select id="filterLevel">
+        <option value="light">Hafif</option>
+        <option value="medium" selected>Orta</option>
+        <option value="aggressive">Agresif</option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button id="toggleFilter" class="btn btn-primary">Filtrelemeyi Aç</button>
+      <button id="clearStats" class="btn btn-secondary">İstatistikleri Temizle</button>
+    </div>
+
+    <div class="status" id="status">
+      <span class="status-indicator"></span>
+      <span class="status-text">Hazır</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
